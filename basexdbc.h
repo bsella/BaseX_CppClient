@@ -1,0 +1,33 @@
+/**
+ * basexdbc.h : communicate with BaseX database server
+ *
+ * Copyright (c) 2005-12, Alexander Holupirek <alex@holupirek.de>, BSD license
+ */
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+/* Connect to BaseX server and open session. Returns socket file descriptor. */
+void* basex_connect(const char *host, const char *port);
+
+/* Authenticate for this session (passing socket desc, db user, and passwd). */
+int basex_authenticate(void* socket, const char *user, const char *passwd);
+
+/*  Send database command to server.
+ *  Expect result and info to be filled (must be free(3)'ed afterwards).
+ *
+ *  int | result | info  |
+ * -----+--------+-------|
+ *  -1  |  NULL  | NULL  | general error (i/o and the like)
+ *   0  | result | info  | database command has been processed successfully
+ *  >0  |  NULL  | error | database command processing failed
+ *
+ * BaseX commands: https://docs.basex.org/wiki/Commands
+ */
+int basex_execute(void* socket, const char *command, char **result, char **info);
+
+/* Close session with descriptor sfd. */
+void basex_close(void* socket);
+#ifdef __cplusplus
+}
+#endif
