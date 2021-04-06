@@ -1,5 +1,4 @@
 /* Copyright (c) 2005-12, Alexander Holupirek <alex@holupirek.de>, BSD license */
-#include <err.h>
 #include <openssl/evp.h>
 #include <openssl/md5.h>
 #include <string.h>
@@ -19,14 +18,14 @@ md5toa(unsigned char *md_value, unsigned int md_len, char **md5_string)
 
 	*md5_string = calloc(length + 1, sizeof(char));
 	if (*md5_string == NULL) {
-		warnx("Can not allocate memory for md5 ascii hex string.");
+		printf("Can not allocate memory for md5 ascii hex string.");
 		return -1;
 	}
 
 	for (i = 0, j = 0; i < md_len && j < length; i++, j += 2) {
 		rc = snprintf((*md5_string) + j, hex_len, "%02x", md_value[i]);
 		if (!(rc > -1 && rc < hex_len)) {
-			warnx("Construction of md5 ascii hex string failed.");
+			printf("Construction of md5 ascii hex string failed.");
 			return -1;
 		}
 	}
@@ -52,8 +51,10 @@ md5_digest(int n, ...)
 	OpenSSL_add_all_digests();
 
 	md = EVP_md5();
-	if(!md)
-		err(1, "Unknown message digest");
+	if(!md){
+		printf("Unknown message digest\n");
+		exit(1);
+	}
 
 	EVP_MD_CTX_init(mdctx);
 	EVP_DigestInit_ex(mdctx, md, NULL);
@@ -70,7 +71,10 @@ md5_digest(int n, ...)
 
 	rc = md5toa(md_value, md_len, &md5_result);
 	if (rc == -1)
-		err(1, "md5 digest failure.");
+	{
+		printf("md5 digest failure.\n");
+		exit(1);
+	}
 
 	return md5_result;
 }

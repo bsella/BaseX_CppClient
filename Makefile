@@ -1,9 +1,19 @@
 all: example
 
-example: readstring.o md5.o basexdbc.o example.o
-	cc readstring.o md5.o basexdbc.o example.o -o example -lcrypto -lSDL2 -lSDL2_net
+CPP=g++
+CC=gcc
+
+example: example.cpp basexcpp.a
+	${CPP} -o example example.cpp basexcpp.a -lcrypto -lSDL2 -lSDL2_net
+
+basexcpp.a: BaseXSession.o basexdbc.o readstring.o md5.o
+	ar r $@ $?
 
 %.o: %.cpp Makefile
-	cc -c $< -o $@
+	${CPP} -c $< -o $@
+
+%.o: %.c Makefile
+	${CC} -c $< -o $@
+
 clean:
-	rm *.o example
+	rm *.o *.a example

@@ -25,6 +25,12 @@
 static int send_db(void* socket, const char *buf, size_t buf_len);
 static int basex_status(void* socket);
 
+#ifdef DEBUG
+	#define WARNF(...) printf(__VA_ARGS__)
+#else
+	#define WARNF(...)
+#endif
+
 /**
  * Connect to host on port using stream sockets.
  *
@@ -97,9 +103,7 @@ basex_authenticate(void* socket, const char *user, const char *passwd)
 	}
 	ts_len = strlen(ts);
 
-#if DEBUG
-	printf("timestamp       : %s (%d)\n", ts, strlen(ts));
-#endif
+	WARNF("timestamp       : %s (%d)\n", ts, strlen(ts));
 
 	/* BaseX Server expects an authentification sequence:
 		   {username}\0{md5(md5(user:realm:password) + timestamp)}\0 */
@@ -149,9 +153,7 @@ basex_authenticate(void* socket, const char *user, const char *passwd)
 	}
 	int md5_pwd_len = strlen(md5_pwd);
 		
-#if DEBUG
-	printf("md5(pwd)        : %s (%d)\n", md5_pwd, md5_pwd_len);
-#endif
+	WARNF("md5(pwd)        : %s (%d)\n", md5_pwd, md5_pwd_len);
 	
 	/* Concat md5'ed codewd string and timestamp/nonce string. */
 	int pwdts_len = md5_pwd_len + ts_len + 1;
@@ -163,9 +165,8 @@ basex_authenticate(void* socket, const char *user, const char *passwd)
 	for (i = 0; i < ts_len; i++,j++)
 		pwdts[j] = t[i];
 	pwdts[pwdts_len - 1] = '\0';
-#if DEBUG
-	printf("md5(pwd)+ts     : %s (%d)\n", pwdts, strlen(pwdts));
-#endif
+
+	WARNF("md5(pwd)+ts     : %s (%d)\n", pwdts, strlen(pwdts));
 
 	/* Compute md5 for md5'ed codeword + timestamp */
 	char *md5_pwdts = md5(pwdts);
@@ -174,9 +175,8 @@ basex_authenticate(void* socket, const char *user, const char *passwd)
 		return -1;
 	}
 	int md5_pwdts_len = strlen(md5_pwdts);
-#if DEBUG
-	printf("md5(md5(pwd)+ts): %s (%d)\n", md5_pwdts, md5_pwdts_len);
-#endif
+
+	WARNF("md5(md5(pwd)+ts): %s (%d)\n", md5_pwdts, md5_pwdts_len);
 
 	/* Send md5'ed(md5'ed codeword + timestamp) to basex. */
 	rc = SDLNet_TCP_Send(socket, md5_pwdts, md5_pwdts_len + 1);  // also send '\0'
@@ -199,9 +199,8 @@ basex_authenticate(void* socket, const char *user, const char *passwd)
 		return -1;
 	}
 
-#if DEBUG
-	printf("Authentification succeeded.\n");
-#endif
+	WARNF("Authentification succeeded.\n");
+
 	return 0;
 }
 
@@ -213,7 +212,6 @@ basex_status(void* socket)
 {
 	char c;
 	if (SDLNet_TCP_Recv(socket, &c, 1) <= 0) {
-		printf("Can not retrieve status code.\n");
 		return -1;
 	}
 	return c;
@@ -280,9 +278,8 @@ basex_execute(void* socket, const char *command, char **result, char **info)
 		printf("Can not retrieve result for command '%s' from server.\n", command);
 		goto err;
 	}
-#if DEBUG
-	printf("[execute] result: '%s'\n", *result);
-#endif
+
+	WARNF("[execute] result: '%s'\n", *result);
 
 	/* Receive {info/error} \0 .*/
 	rc = readstring(socket, info);
@@ -290,21 +287,20 @@ basex_execute(void* socket, const char *command, char **result, char **info)
 		printf("Can not retrieve info for command '%s' from server.\n", *info);
 		goto err;
 	}
-#if DEBUG
-	printf("[execute] info/error: '%s'\n", *info);
-#endif
+
+	WARNF("[execute] info/error: '%s'\n", *info);
 
 	/* Receive terminating \0 for success or \1 for error .*/
 	rc = basex_status(socket);
-#if DEBUG
-	printf("[execute] status: '%d'\n", rc);
-#endif
+
+	WARNF("[execute] status: '%d'\n", rc);
+
 	if (rc == -1) {
 		printf("Can not retrieve status.");
 		goto err;
 	}
 	if (rc == 1) {
-		printf("BaseX error message : %s\n", *info);
+		WARNF("BaseX error message : %s\n", *info);
 		free(*result);
 		*result = NULL;
 	}
