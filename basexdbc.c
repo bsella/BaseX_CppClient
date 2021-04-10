@@ -13,14 +13,18 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 
-#include <SDL2/SDL.h>
 #include <SDL2/SDL_net.h>
 
 #include "basexdbc.h"
 #include "md5.h"
 #include "readstring.h"
+
+#ifdef _WIN32
+#define STRNCPY(dst, src, siz) strncpy_s(dst, siz+1, src, -1)
+#else
+#define STRNCPY(...) strncpy(__VA_ARGS__)
+#endif
 
 static int send_db(void* socket, const char *buf, size_t buf_len);
 static int basex_status(void* socket);
@@ -91,7 +95,8 @@ basex_authenticate(void* socket, const char *user, const char *passwd)
 {
 	char ts[BUFSIZ]; /* timestamp returned by basex. */
 	char *md5_pwd;   /* md5'ed passwd */
-	int ts_len, rc, i;
+	size_t ts_len;
+	int rc;
 
 	/* Right after the first connect BaseX returns a nul-terminated
 		 * timestamp string. */
@@ -111,7 +116,7 @@ basex_authenticate(void* socket, const char *user, const char *passwd)
 		/* {username}\0{md5(md5(password) + timestamp)}\0 */
 
 	/* Send {username}\0 */
-	int user_len = strlen(user) + 1;
+	int user_len = (int)strlen(user) + 1;
 	rc = SDLNet_TCP_Send(socket, user, user_len);
 	if (rc < user_len) {
 		printf("Sending username failed. SDLNet_TCP_Recv : %s\n", SDLNet_GetError());
@@ -134,35 +139,40 @@ basex_authenticate(void* socket, const char *user, const char *passwd)
 		/* v8.0+ login */
 		t = p + 1;
 		/* Compute md5 for codeword. */
-		int user_len = strlen(user);
-		int pass_len = strlen(passwd);
+		size_t user_len = strlen(user);
+		size_t pass_len = strlen(passwd);
 		int realm_len = p - ts;
-		char codewd[user_len + realm_len + pass_len + 3];
-		strncpy(codewd, user, user_len);
-		codewd[user_len] = ':';
-		strncpy(codewd + user_len + 1, ts, realm_len);
-		codewd[user_len + 1 + realm_len] = ':';
-		strncpy(codewd + user_len + 1 + realm_len + 1, passwd, pass_len);
-		codewd[user_len + 1 + realm_len + 1 + pass_len] = '\0';
-		md5_pwd = md5(codewd);
+		{
+			char* codewd = malloc(sizeof(char) * (user_len + realm_len + pass_len + 3));
+			STRNCPY(codewd, user, user_len);
+			codewd[user_len] = ':';
+			STRNCPY(codewd + user_len + 1, ts, realm_len);
+			codewd[user_len + 1 + realm_len] = ':';
+			STRNCPY(codewd + user_len + 1 + realm_len + 1, passwd, pass_len);
+			codewd[user_len + 1 + realm_len + 1 + pass_len] = '\0';
+			md5_pwd = md5(codewd);
+			free(codewd);
+		}
 		if (md5_pwd == NULL) {
 			printf("md5 computation for password failed.\n");
 			return -1;
 		}
 		ts_len = ts_len - realm_len -1;
 	}
-	int md5_pwd_len = strlen(md5_pwd);
+	size_t md5_pwd_len = strlen(md5_pwd);
 		
 	WARNF("md5(pwd)        : %s (%d)\n", md5_pwd, md5_pwd_len);
 	
 	/* Concat md5'ed codewd string and timestamp/nonce string. */
-	int pwdts_len = md5_pwd_len + ts_len + 1;
-	char pwdts[pwdts_len];
+	size_t pwdts_len = md5_pwd_len + ts_len + 1;
+	
+	char* pwdts = malloc(sizeof(char) * pwdts_len);
 	memset(pwdts, 0, sizeof(pwdts));
+	size_t i;
 	for (i = 0; i < md5_pwd_len; i++)
 		pwdts[i] = md5_pwd[i];
 	int j = md5_pwd_len;
-	for (i = 0; i < ts_len; i++,j++)
+	for (i = 0; i < ts_len; i++, j++)
 		pwdts[j] = t[i];
 	pwdts[pwdts_len - 1] = '\0';
 
@@ -170,11 +180,14 @@ basex_authenticate(void* socket, const char *user, const char *passwd)
 
 	/* Compute md5 for md5'ed codeword + timestamp */
 	char *md5_pwdts = md5(pwdts);
+
+	free(pwdts);
+
 	if (md5_pwdts == NULL) {
 		printf("md5 computation for password + timestamp failed.\n");
 		return -1;
 	}
-	int md5_pwdts_len = strlen(md5_pwdts);
+	size_t md5_pwdts_len = strlen(md5_pwdts);
 
 	WARNF("md5(md5(pwd)+ts): %s (%d)\n", md5_pwdts, md5_pwdts_len);
 
@@ -342,7 +355,7 @@ basex_close(void* socket){
  */
 static int
 send_db(void* socket, const char *buf, size_t buf_len){
-	ssize_t ret;
+	int ret;
 
 	while (buf_len != 0 && (ret = SDLNet_TCP_Send(socket, buf, buf_len)) != 0) {
 		if (ret < 0) {

@@ -15,7 +15,7 @@ int main()
 	}
 
 	try{
-		std::cout << session.execute("xquery /") << std::endl;
+		std::cout << session.execute("xquery 1 + 1") << std::endl;
 	}
 	catch(BaseXNetworkError& e)
 	{

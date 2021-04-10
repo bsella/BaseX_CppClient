@@ -3,7 +3,7 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-ssize_t readstring(void* socket, char **str);
+int readstring(void* socket, char **str);
 #ifdef __cplusplus
 }
 #endif

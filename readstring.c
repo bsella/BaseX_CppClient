@@ -4,7 +4,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 
 #include <SDL2/SDL_net.h>
 
@@ -25,7 +24,7 @@ static size_t READSTRING_MAX = 1024 * 1024 * 10; // 10MB
  * @return number of characters read or -1 in case of failure
  *         in case of an error str is set to NULL
  */
-ssize_t
+int
 readstring(void* socket, char **str)
 {
 	char b;
@@ -58,7 +57,7 @@ readstring(void* socket, char **str)
 				size = newsize;
 			} else {
 				errno = ENOBUFS;
-				printf("variable string exceeds maximum of %d\n"
+				printf("variable string exceeds maximum of %zu\n"
 					, READSTRING_MAX);
 				goto err;
 			}
